@@ -284,6 +284,10 @@ imp_obj_unique_df = imp_obj_unique_df.drop_duplicates()
 
 from climada.engine import ImpactCalc
 
+# Parameters
+imp_calc_params_kwargs = {'save_mat': True, 'assign_centroids': True, 'ignore_cover': False, 'ignore_deductible': False}
+
+
 # Create a dictionary to store the unique impact objects
 imp_obj_dict = {}
 
@@ -332,10 +336,23 @@ for row_df in imp_obj_unique_df.iterrows():
         new_exp, new_impfs, new_haz = meas_obj.apply(exp_obj, impfs_obj, haz_obj)
 
     # Calculate the unique impact object
-    imp_obj = ImpactCalc(new_exp, new_impfs, new_haz).impact()
+    imp_obj = ImpactCalc(new_exp, new_impfs, new_haz).impact(**imp_calc_params_kwargs)
 
+    # Store the unique impact object in the dictionary
+    imp_obj_dict[imp_obj_ID] = imp_obj
 
+#%% Define teh customized impact functions for risk metrics 
+'''
+Each simulation is a stochastic realization of the hazard and the exposure. 
+Thus how do we define the impact function for the event, year, and pathway year (each being a simualtion)?
 
-    
+Risk to access
+- Probability of default for a loan
+- NPV of losses
+- Cost-benefit (each being a stochastic realization of the pathway)
+'''
 
-# %%
+# For simualtion - the impact calc per event, year and pathway year
+# For risk metrics, i.e, statistics, - the statistic impact calc per event, year and pathway year
+
+ 
