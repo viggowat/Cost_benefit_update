@@ -172,31 +172,113 @@ meas_avail_dict, meas_given_dict, meas_active_df = sfc.generate_meas_df(meas_dic
 
 # Get all the necessary data frames
 
-# Rmeber to add insurance as measuer
-incl_insurance = True
-
-# Get the pathway years
-pathway_years = meas_active_df.index.get_level_values(0).unique().tolist()
-
-# Get the unique measures
-measure_names = meas_active_df.columns.get_level_values(0).unique().tolist()
-# remove 'measure_set' from the list
-measure_names.remove('meas_idx_year')
-# Add 'no measure' to the list and put first in the list
-measure_names.append('no measure')
-measure_names.sort(reverse=True)
-# Add 'insurance' to the list if it is included
-if incl_insurance:
-    measure_names.append('insurance')
 
 
 
-# Get the exposure types
-exp_types = list(exp_avail_dict.keys())
 
-# Get the hazard types
-haz_types = list(haz_avail_dict.keys())
+#%% Create the impact objects data frame mapping and unique impact objects data frame
 
+def generate_imp_obj_df(meas_active_df, incl_insurance = True):
+    
+    # Get the pathway years
+    pathway_years = meas_active_df.index.get_level_values(0).unique().tolist()
+    # Get the unique measures
+    measure_names = meas_active_df.columns.get_level_values(0).unique().tolist()
+    # remove 'measure_set' from the list
+    measure_names.remove('meas_idx_year')
+    # Add 'no measure' to the list and put first in the list
+    measure_names.append('no measure')
+    measure_names.sort(reverse=True)
+    # Add 'insurance' to the list if it is included
+    if incl_insurance:
+        measure_names.append('insurance')
+    # Get the exposure types
+    exp_types = list(exp_avail_dict.keys())
+    # Get the hazard types
+    haz_types = list(haz_avail_dict.keys())
+    
+    # Define the columns of the unique impact objects data frame mappping
+    columns = ['pathway_year',  'exp_type', 'exp_idx_year', 'exp_multiplier', 'haz_type', 'haz_idx_year', 'haz_multiplier', 'impfs_idx_year', 'meas_name', 'meas_is_active', 'meas_idx_year','meas_protects_haz_type','imp_obj_ID']
+
+    # Create an empty data frame to store the unique impact objects
+    imp_obj_map_df = pd.DataFrame(columns=columns)
+
+    # Loop over the pathway years
+    for path_year in pathway_years:
+
+        # Get the impact function set index year
+        impfs_idx_year = impfs_active_df.loc[path_year].values[0]
+
+        ## Generate the impact objects data frame mapping
+        # Loop over the exposure types
+        for exp_type in exp_types:
+                # Get the exposure index year
+                exp_multi_df = exp_multipl_dict[exp_type]
+                exp_multi_df = exp_multi_df.loc[path_year]
+                exp_multi_df = exp_multi_df[exp_multi_df > 0]
+                exp_idx_year = exp_multi_df.index[0]
+                # Get the exposure multiplier
+                exp_multiplier = exp_multi_df.values[0]
+
+                for haz_type in haz_types:
+                    # Get the hazard index years
+                    haz_multi_df = haz_param_dict[haz_type]
+                    haz_multi_df = haz_multi_df.loc[path_year]
+                    haz_multi_df = haz_multi_df[haz_multi_df > 0]
+                    haz_idx_years = haz_multi_df.index
+                    # Get the hazard multipliers
+                    haz_multipliers = haz_multi_df.values
+
+
+                    for meas_name in measure_names:
+                        # Get the measure is active
+                        if meas_name == 'no measure' or meas_name == 'insurance':
+                            meas_is_active = 1
+                        else:
+                            meas_is_active = meas_active_df.loc[year, meas_name]
+                    
+                        # Get the measure set idx year
+                        meas_idx_year = meas_active_df.loc[path_year, 'meas_idx_year']
+
+                        # Check if the measure protects the hazard type
+                        if meas_name == 'no measure':
+                            meas_protects_haz_type = 0
+                        elif meas_name == 'insurance' or meas_name in meas_avail_dict[meas_idx_year].get_names()[haz_type]:
+                            meas_protects_haz_type = 1
+                        
+
+                        # Create the unique impact object ID in the same order as the columns 
+                        # Exclude for the pathway year, the multipliers, and the measure is active
+                        imp_obj_ID = f'{exp_type}_{exp_idx_year}_{haz_type}_{haz_idx_years[0]}_Impfs_{impfs_idx_year}_{meas_name}_{meas_idx_year}'
+
+                        # If measure is inactive use the same impact object the as the no measure
+                        if meas_name == 'no measure':
+                            imp_obj_ID_no_meas = imp_obj_ID
+                        elif meas_is_active == 0 or meas_protects_haz_type == 0:
+                            imp_obj_ID = imp_obj_ID_no_meas
+
+                        # Create a dictionary with the values and the columns as keys
+                        values = [path_year, exp_type, exp_idx_year, exp_multiplier, haz_type, haz_idx_years[0], haz_multipliers[0], impfs_idx_year, meas_name, meas_is_active, meas_idx_year, meas_protects_haz_type, imp_obj_ID]
+                        values_dict = dict(zip(columns, values))
+
+                        # Concatenate the values to the data frame
+                        if imp_obj_map_df.empty:
+                            imp_obj_map_df = pd.DataFrame(values_dict, index=[0])
+                        else:
+                            imp_obj_map_df = pd.concat([imp_obj_map_df, pd.DataFrame(values_dict, index=[0])], ignore_index=True)
+
+    ## Generate the unique impact objects data frame
+    # Unique impact objects data frame
+    imp_obj_unique_df = copy.deepcopy(imp_obj_map_df)
+    # Drop pathway year, measure, the multipliers, and the measure is active
+    imp_obj_unique_df = imp_obj_unique_df.drop(['pathway_year', 'meas_is_active', 'meas_protects_haz_type', 'exp_multiplier', 'haz_multiplier'], axis=1)
+    # Drop duplicates
+    imp_obj_unique_df = imp_obj_unique_df.drop_duplicates()
+
+
+    return imp_obj_map_df, imp_obj_unique_df
+
+generate_imp_obj_df(meas_active_df, incl_insurance = True)
 
 
 #%% Create the unique impact objects data frame mapping 
@@ -279,6 +361,67 @@ imp_obj_unique_df = imp_obj_unique_df.drop(['pathway_year', 'meas_is_active', 'm
 imp_obj_unique_df = imp_obj_unique_df.drop_duplicates()
 
 
+
+#%% Generate the unique impact objects and store in a dictionary
+
+def generate_imp_obj_dict(imp_calc_params_kwargs= {'save_mat': True, 'assign_centroids': True, 'ignore_cover': False, 'ignore_deductible': False}):
+    # Create a dictionary to store the unique impact objects
+    imp_obj_dict = {}
+
+    # Iterate over the unique impact objects rows in the data frame
+    for row_df in imp_obj_unique_df.iterrows():
+        # Get the exposure type
+        exp_type = row_df[1]['exp_type']
+        # Get the exposure index year
+        exp_idx_year = row_df[1]['exp_idx_year']
+        # Get the exposure object
+        exp_obj = exp_avail_dict[exp_type][exp_idx_year]
+
+        # Get the hazard type
+        haz_type = row_df[1]['haz_type']
+        # Get the hazard index year
+        haz_idx_year = row_df[1]['haz_idx_year']
+        # Get the hazard object
+        haz_obj = haz_avail_dict[haz_type][haz_idx_year]
+
+        # Get the impact function set index year
+        impfs_idx_year = row_df[1]['impfs_idx_year']
+        # Get the impact function set object
+        impfs_obj = impfs_avail_dict[impfs_idx_year]
+
+        # Get the measure
+        meas_name = row_df[1]['meas_name']
+        # Get the measure index year
+        meas_idx_year = row_df[1]['meas_idx_year']
+        # Get the measure object
+        if meas_name == 'no measure':
+            meas_obj = None
+        elif meas_name == 'insurance':
+            meas_obj = None
+        else:
+            meas_set = meas_avail_dict[meas_idx_year]
+            meas_obj = meas_set.get_measure()[haz_type][meas_name]
+
+        # Get the unique impact object ID
+        imp_obj_ID = row_df[1]['imp_obj_ID']
+
+        # Calculate the new exposure, impact function set, and hazard object given the measure
+        if meas_obj is None:
+            new_exp, new_impfs, new_haz = exp_obj, impfs_obj, haz_obj
+        else:
+            # Calculate the new exposure, impact function set, and hazard object given the measure
+            new_exp, new_impfs, new_haz = meas_obj.apply(exp_obj, impfs_obj, haz_obj)
+
+        # Calculate the unique impact object
+        imp_obj = ImpactCalc(new_exp, new_impfs, new_haz).impact(**imp_calc_params_kwargs)
+
+        # Store the unique impact object in the dictionary
+        imp_obj_dict[imp_obj_ID] = imp_obj
+
+    return imp_obj_dict
+
+
+
 #%% Calculate the unique impact objects and store in a dictionary
 # Make as a function
 
@@ -349,10 +492,11 @@ Thus how do we define the impact function for the event, year, and pathway year 
 Risk to access
 - Probability of default for a loan
 - NPV of losses
-- Cost-benefit (each being a stochastic realization of the pathway)
+- Cost-benefit (each being a stochastic realization of the pathway/trajectory)
 '''
 
 # For simualtion - the impact calc per event, year and pathway year
 # For risk metrics, i.e, statistics, - the statistic impact calc per event, year and pathway year
 
  
+# %%
