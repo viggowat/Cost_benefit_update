@@ -611,7 +611,7 @@ def generate_meas_df(meas_dict, future_year, meas_inactive_years_dict=None):
 
 #%% Create the impact objects data frame mapping and unique impact objects data frame
 
-def generate_imp_obj_df(exp_avail_dict, haz_avail_dict, impfs_active_df, exp_multipl_dict, haz_param_dict, meas_avail_dict, meas_active_df, incl_insurance = True):
+def generate_imp_meas_df(exp_avail_dict, haz_avail_dict, impfs_active_df, exp_multipl_dict, haz_param_dict, meas_avail_dict, meas_active_df, incl_insurance = True):
     
     # Get the pathway years
     pathway_years = meas_active_df.index.get_level_values(0).unique().tolist()
@@ -630,11 +630,15 @@ def generate_imp_obj_df(exp_avail_dict, haz_avail_dict, impfs_active_df, exp_mul
     # Get the hazard types
     haz_types = list(haz_avail_dict.keys())
     
-    # Define the columns of the unique impact objects data frame mappping
-    columns = ['pathway_year',  'exp_type', 'exp_idx_year', 'exp_multiplier', 'haz_type', 'haz_idx_year', 'haz_multiplier', 'impfs_idx_year', 'meas_name', 'meas_is_active', 'meas_idx_year','meas_protects_haz_type','imp_obj_ID']
+   # Define the columns of the unique impact objects data frame mappping
+    columns = ['pathway_year',  'exp_type', 'exp_idx_year', 'exp_multiplier', 
+            'haz_type', 'haz_idx_year', 'haz_multiplier', 
+            'impfs_idx_year', 
+            'meas_name', 'meas_is_active', 'meas_idx_year','meas_protects_haz_type', 
+            'imp_obj_ID']
 
     # Create an empty data frame to store the unique impact objects
-    imp_obj_map_df = pd.DataFrame(columns=columns)
+    imp_meas_map_year_df = pd.DataFrame(columns=columns)
 
     # Loop over the pathway years
     for path_year in pathway_years:
@@ -653,6 +657,7 @@ def generate_imp_obj_df(exp_avail_dict, haz_avail_dict, impfs_active_df, exp_mul
                 # Get the exposure multiplier
                 exp_multiplier = exp_multi_df.values[0]
 
+                # Loop over the hazard types
                 for haz_type in haz_types:
                     # Get the hazard index years
                     haz_multi_df = haz_param_dict[haz_type]
@@ -662,66 +667,244 @@ def generate_imp_obj_df(exp_avail_dict, haz_avail_dict, impfs_active_df, exp_mul
                     # Get the hazard multipliers
                     haz_multipliers = haz_multi_df.values
 
+                    # Loop over the different hazard index years
+                    for haz_idx_year, haz_multiplier in zip(haz_idx_years, haz_multipliers):
 
-                    for meas_name in measure_names:
-                        # Get the measure is active
-                        if meas_name == 'no measure' or meas_name == 'insurance':
-                            meas_is_active = 1
-                        else:
-                            meas_is_active = meas_active_df.loc[path_year, meas_name]
-                    
-                        # Get the measure set idx year
-                        meas_idx_year = meas_active_df.loc[path_year, 'meas_idx_year']
+                        # Create the core values dictionary to populate the data frame
+                        core_values_dict = {'pathway_year': path_year, 'exp_type': exp_type, 'exp_idx_year': exp_idx_year, 'exp_multiplier': exp_multiplier, 
+                            'haz_type': haz_type, 'haz_idx_year': haz_idx_year, 'haz_multiplier': haz_multiplier, 
+                            'impfs_idx_year': impfs_idx_year, 
+                            }
 
-                        # Check if the measure protects the hazard type
-                        if meas_name == 'no measure':
-                            meas_protects_haz_type = 0
-                        elif meas_name == 'insurance' or meas_name in meas_avail_dict[meas_idx_year].get_names()[haz_type]:
-                            meas_protects_haz_type = 1
+                        # Loop over the measures
+                        for meas_name in measure_names:
+                            # Get the measure is active
+                            if meas_name == 'no measure' or meas_name == 'insurance':
+                                meas_is_active = 1
+                            else:
+                                meas_is_active = meas_active_df.loc[path_year, meas_name]
                         
+                            # Get the measure set idx year
+                            meas_idx_year = meas_active_df.loc[path_year, 'meas_idx_year']
 
-                        # Create the unique impact object ID in the same order as the columns 
-                        # Exclude for the pathway year, the multipliers, and the measure is active
-                        imp_obj_ID = f'{exp_type}_{exp_idx_year}_{haz_type}_{haz_idx_years[0]}_Impfs_{impfs_idx_year}_{meas_name}_{meas_idx_year}'
+                            # Check if the measure protects the hazard type
+                            if meas_name == 'no measure':
+                                meas_protects_haz_type = 0
+                            elif meas_name == 'insurance' or meas_name in meas_avail_dict[meas_idx_year].get_names()[haz_type]:
+                                meas_protects_haz_type = 1
+                            
 
-                        # If measure is inactive use the same impact object the as the no measure
-                        if meas_name == 'no measure':
-                            imp_obj_ID_no_meas = imp_obj_ID
-                        elif meas_is_active == 0 or meas_protects_haz_type == 0:
-                            imp_obj_ID = imp_obj_ID_no_meas
+                            # Create the unique impact object ID in the same order as the columns 
+                            # Exclude for the pathway year, the multipliers, and the measure is active
+                            imp_obj_ID = f'{exp_type}_{exp_idx_year}_{haz_type}_{haz_idx_year}_Impfs_{impfs_idx_year}_{meas_name}_{meas_idx_year}'
 
-                        # Create a dictionary with the values and the columns as keys
-                        values = [path_year, exp_type, exp_idx_year, exp_multiplier, haz_type, haz_idx_years[0], haz_multipliers[0], impfs_idx_year, meas_name, meas_is_active, meas_idx_year, meas_protects_haz_type, imp_obj_ID]
-                        values_dict = dict(zip(columns, values))
+                            # If measure is inactive use the same impact object the as the no measure
+                            if meas_name == 'no measure':
+                                imp_obj_ID_no_meas = imp_obj_ID
+                            elif meas_is_active == 0 or meas_protects_haz_type == 0:
+                                imp_obj_ID = imp_obj_ID_no_meas
 
-                        # Concatenate the values to the data frame
-                        if imp_obj_map_df.empty:
-                            imp_obj_map_df = pd.DataFrame(values_dict, index=[0])
-                        else:
-                            imp_obj_map_df = pd.concat([imp_obj_map_df, pd.DataFrame(values_dict, index=[0])], ignore_index=True)
+                            # Create a dictionary with the values and the columns as keys
+                            meas_values_dict = {'meas_name': meas_name, 'meas_is_active': meas_is_active, 'meas_idx_year': meas_idx_year, 'meas_protects_haz_type': meas_protects_haz_type, 
+                                        'imp_obj_ID': imp_obj_ID}
+                            values_dict = {**core_values_dict, **meas_values_dict}
+
+                            # Concatenate the values to the data frame
+                            if imp_meas_map_year_df.empty: # If the data frame is empty create it
+                                imp_meas_map_year_df = pd.DataFrame(values_dict, index=[0]) # Create the data frame
+                            else:
+                                imp_meas_map_year_df = pd.concat([imp_meas_map_year_df, pd.DataFrame(values_dict, index=[0])], ignore_index=True)
 
     ## Generate the unique impact objects data frame
     # Unique impact objects data frame
-    imp_obj_unique_df = copy.deepcopy(imp_obj_map_df)
+    imp_meas_unique_df = copy.deepcopy(imp_meas_map_year_df)
     # Drop pathway year, measure, the multipliers, and the measure is active
-    imp_obj_unique_df = imp_obj_unique_df.drop(['pathway_year', 'meas_is_active', 'meas_protects_haz_type', 'exp_multiplier', 'haz_multiplier'], axis=1)
+    imp_meas_unique_df = imp_meas_unique_df.drop(['pathway_year', 'meas_is_active', 'meas_protects_haz_type', 'exp_multiplier', 'haz_multiplier'], axis=1)
     # Drop duplicates
-    imp_obj_unique_df = imp_obj_unique_df.drop_duplicates()
+    imp_meas_unique_df = imp_meas_unique_df.drop_duplicates()
 
 
-    return imp_obj_map_df, imp_obj_unique_df
+    return imp_meas_map_year_df, imp_meas_unique_df
 
 
+#%% Utility function to generate the unique impact objects data frame
+
+def create_filter_conditions(input_dict, param):
+    filter_conditions = {}
+    for key, value in input_dict.items():
+        if not isinstance(value, list):
+            value = [value]
+        filter_conditions[key] = {param: value}
+    return filter_conditions
+
+def filter_dataframe(df, filter_conditions=None, derived_columns=None, base_cols=None):
+    """
+    This function filters a DataFrame based on provided conditions and calculates derived columns.
+
+    Parameters:
+    - df (pandas.DataFrame): The input DataFrame.
+    - filter_conditions (dict): A dictionary specifying filtering conditions for columns.
+    - derived_columns (dict): A dictionary specifying derived columns and their functions.
+
+    Returns:
+    - filtered_df (pandas.DataFrame): The filtered DataFrame based on conditions and derived columns.
+    - boolean_df (pandas.DataFrame): A boolean DataFrame indicating whether values satisfy conditions.
+    """
+
+    # Create a copy of the input DataFrame
+    filtered_df = df.copy()
+    unfiltered_df = df.copy()
+    
+    # If conditions or derived columns are not provided, initialize them as empty dictionaries
+    if filter_conditions is None:
+        filter_conditions = {}
+    
+    if derived_columns is None:
+        derived_columns = {}
+
+    # Calculate and add derived columns to the filtered DataFrame
+    if derived_columns:
+        for new_col, function in derived_columns.items():
+            filtered_df[new_col] = function(df)
+            unfiltered_df[new_col] = function(df)
+
+    # Create a boolean DataFrame to track conditions satisfaction
+    if base_cols:
+        boolean_df = df[base_cols].copy()
+    else:
+        boolean_df = df.copy()
+    
+    # Apply filtering conditions and update boolean DataFrame accordingly
+    if filter_conditions:
+        for col, cond in filter_conditions.items():
+            
+            if isinstance(cond, list):
+                # Filter data based on whether column values are equal to the provided value
+                filtered_df = filtered_df[filtered_df[col] == cond['equal']]
+                boolean_df[col] = unfiltered_df[col] == cond['equal']
+            elif 'equal' in cond:
+                # Filter data based on whether column values are equal to the provided value
+                filtered_df = filtered_df[filtered_df[col].isin(cond['equal'])]
+                boolean_df[col] = unfiltered_df[col].isin(cond['equal'])
+            elif 'in' in cond:
+                # Filter data based on whether column values are in the provided list
+                filtered_df = filtered_df[filtered_df[col].isin(cond['in'])]
+                boolean_df[col] = unfiltered_df[col].isin(cond['in'])
+            elif 'greater' in cond:
+                # Filter data based on whether column values are greater than the provided value
+                filtered_df = filtered_df[filtered_df[col] > cond['greater']]
+                boolean_df[col] = unfiltered_df[col] > cond['greater']
+            elif 'less' in cond:
+                # Filter data based on whether column values are less than the provided value
+                filtered_df = filtered_df[filtered_df[col] < cond['less']]
+                boolean_df[col] = unfiltered_df[col] < cond['less']
+            elif 'range' in cond:
+                # Filter data based on whether column values are within the provided range
+                lower, upper = cond['range']
+                filtered_df = filtered_df[(filtered_df[col] >= lower) & (filtered_df[col] <= upper)]
+                boolean_df[col] = (unfiltered_df[col] >= lower) & (unfiltered_df[col] <= upper)
+
+    # Drop derived columns from the final filtered DataFrame
+    if derived_columns:
+        filtered_df = filtered_df.drop(derived_columns.keys(), axis=1)
+     
+    return filtered_df, boolean_df
+
+
+#%% Generate the impact combo objects data frame
+
+def generate_imp_combo_df(imp_meas_map_year_df, combo_dict = {}):
+            
+    # If combo_dict is empty make a combination of all measures
+    if not combo_dict:
+        # Get all the unique measures
+        meas_included = imp_meas_map_year_df['meas_name'].unique()
+        # Create a dictionary with the combination of all measures
+        combo_dict = {'All measures': meas_included}
+
+    # Get the unique path years, exposure types, hazard types, and haz_idx_years 
+    path_years = imp_meas_map_year_df['pathway_year'].unique()
+    exp_types = imp_meas_map_year_df['exp_type'].unique()
+    haz_types = imp_meas_map_year_df['haz_type'].unique()
+
+    # Define the data frame to store the impact object mapping
+    imp_combo_map_df = pd.DataFrame()
+
+    # Create the impact object mapping for each combination of measures for each pathway year, exposure type, hazard type, and hazard index year
+
+    # Loop over the pathway years
+    for path_year in  path_years:
+        # Loop over expsoire types
+        for exp_type in exp_types:
+            # Loop over hazard types
+            for haz_type in haz_types:
+
+                # Get the hazard index years
+                haz_idx_years = imp_meas_map_year_df[(imp_meas_map_year_df['pathway_year'] == path_year) & (imp_meas_map_year_df['exp_type'] == exp_type) & (imp_meas_map_year_df['haz_type'] == haz_type)]['haz_idx_year'].unique()
+
+                # Loop over hazard index years
+                for haz_idx_year in haz_idx_years:
+
+                    # Get the core values for the data frame
+                    core_values_dict = {'pathway_year': path_year, 'exp_type': exp_type, 'haz_type': haz_type, 'haz_idx_year': haz_idx_year}
+
+                    # Loop over the combinations of measures
+                    for combo_name in combo_dict:
+                        
+                        # Get the measures in the combination
+                        meas_in_combo = combo_dict[combo_name]
+
+                        # Filter out the rows that satisfy the conditions in the data frame
+                        filter_equal_conditions = create_filter_conditions(core_values_dict, 'equal')
+                        filter_in_conditions = create_filter_conditions({'meas_name': meas_in_combo}, 'in')
+                        filter_conditions = {**filter_equal_conditions, **filter_in_conditions}
+                        sub_df = filter_dataframe(imp_meas_map_year_df, filter_conditions=filter_conditions)[0]
+
+                        # Get list of the unique impact object IDs
+                        based_on_Imp_obj_IDs = sub_df['imp_obj_ID'].unique()
+                        if len(based_on_Imp_obj_IDs) == 0:
+                            raise ValueError('No impact object found for the combination of measures')
+
+
+                        # Create the unique impact object ID in the same order as the columns
+                        # Exclude for the pathway year, the multipliers, and the measure is active
+                        imp_obj_ID = f'{exp_type}_{haz_type}_{haz_idx_year}_{combo_name}'
+
+                        # Create a dictionary with the values and the columns as keys
+                        values_dict = {**core_values_dict, 'meas_name': combo_name, 'meas_included': [meas_in_combo], 'imp_obj_ID': imp_obj_ID, 'based_on_Imp_obj_IDs': [based_on_Imp_obj_IDs]}
+
+                        # Concatenate the values to the data frame
+                        if imp_combo_map_df.empty:
+                            imp_combo_map_df = pd.DataFrame(values_dict, index=[0])
+                        else:
+                            imp_combo_map_df = pd.concat([imp_combo_map_df, pd.DataFrame(values_dict, index=[0])], ignore_index=True)
+
+
+    # Get the unique impact object IDs
+    # Generate the unique impact objects data frame
+    # Only include the unique impact object IDs and the based on impact object IDs
+    # Drop column 'pathway_year'
+    imp_combo_unique_df = copy.deepcopy(imp_combo_map_df)
+    # Drop column 'pathway_year' and 'meas_included'
+    imp_combo_unique_df = imp_combo_unique_df.drop(columns=['pathway_year', 'meas_included'])
+    # Convert lists in 'based_on_Imp_obj_IDs' to tuples
+    imp_combo_unique_df['based_on_Imp_obj_IDs'] = imp_combo_unique_df['based_on_Imp_obj_IDs'].apply(tuple)
+    # Drop duplicates
+    imp_combo_unique_df = imp_combo_unique_df.drop_duplicates().reset_index(drop=True)
+    # Convert tuples back to lists
+    imp_combo_unique_df['based_on_Imp_obj_IDs'] = imp_combo_unique_df['based_on_Imp_obj_IDs'].apply(list) 
+
+    return imp_combo_map_df, imp_combo_unique_df
 #%% Generate the unique impact objects and store in a dictionary
 
-def generate_imp_obj_dict(imp_obj_unique_df, exp_avail_dict, haz_avail_dict, impfs_avail_dict, meas_avail_dict, calc_rel_imp = True, imp_calc_params_kwargs= {'save_mat': True, 'assign_centroids': True, 'ignore_cover': False, 'ignore_deductible': False}):
+def generate_imp_obj_dict(imp_meas_unique_df, exp_avail_dict, haz_avail_dict, impfs_avail_dict, meas_avail_dict, calc_rel_imp = True, imp_calc_params_kwargs= {'save_mat': True, 'assign_centroids': True, 'ignore_cover': False, 'ignore_deductible': False}):
     
     # Create a dictionary to store the unique impact objects
     imp_abs_dict = {}
     imp_rel_dict = {} # Store the relative impact objects (used when recovery rate  
 
     # Iterate over the unique impact objects rows in the data frame
-    for row_df in imp_obj_unique_df.iterrows():
+    for row_df in imp_meas_unique_df.iterrows():
         # Get the exposure type
         exp_type = row_df[1]['exp_type']
         # Get the exposure index year
