@@ -814,6 +814,9 @@ def filter_dataframe(df, filter_conditions=None, derived_columns=None, base_cols
 #%% Generate the impact combo objects data frame
 
 def generate_imp_combo_df(imp_meas_map_year_df, combo_dict = {}):
+    '''
+    Remove the no measure impact objects from the based on impact object IDs
+    '''
             
     # If combo_dict is empty make a combination of all measures
     if not combo_dict:
@@ -836,6 +839,12 @@ def generate_imp_combo_df(imp_meas_map_year_df, combo_dict = {}):
     for path_year in  path_years:
         # Loop over expsoire types
         for exp_type in exp_types:
+
+            # Get the exposure index years
+            exp_idx_year = imp_meas_map_year_df[(imp_meas_map_year_df['pathway_year'] == path_year) & (imp_meas_map_year_df['exp_type'] == exp_type)]['exp_idx_year'].unique()
+            # Make as integer not array
+            exp_idx_year = exp_idx_year[0]
+
             # Loop over hazard types
             for haz_type in haz_types:
 
@@ -846,7 +855,7 @@ def generate_imp_combo_df(imp_meas_map_year_df, combo_dict = {}):
                 for haz_idx_year in haz_idx_years:
 
                     # Get the core values for the data frame
-                    core_values_dict = {'pathway_year': path_year, 'exp_type': exp_type, 'haz_type': haz_type, 'haz_idx_year': haz_idx_year}
+                    core_values_dict = {'pathway_year': path_year, 'exp_type': exp_type, 'exp_idx_year': exp_idx_year, 'haz_type': haz_type, 'haz_idx_year': haz_idx_year}
 
                     # Loop over the combinations of measures
                     for combo_name in combo_dict:
@@ -864,6 +873,21 @@ def generate_imp_combo_df(imp_meas_map_year_df, combo_dict = {}):
                         based_on_Imp_obj_IDs = sub_df['imp_obj_ID'].unique()
                         if len(based_on_Imp_obj_IDs) == 0:
                             raise ValueError('No impact object found for the combination of measures')
+                        # Exclude the no measure impact objects from the based on impact object IDs, if the no measure substring is in the impact object ID
+
+                        # Split the list into two lists: one with 'no measure' and one without
+                        no_measure_ids = [id for id in based_on_Imp_obj_IDs if 'no measure' in id]
+                        other_ids = [id for id in based_on_Imp_obj_IDs if 'no measure' not in id]
+                        # If there are IDs without 'no measure', return the unique ones
+                        if other_ids:
+                            other_ids = list(set(other_ids))
+                            based_on_Imp_obj_IDs = other_ids
+                        # If there are only 'no measure' IDs, return the unique ones and print a warning if there are duplicates
+                        elif no_measure_ids:
+                            unique_no_measure_ids = list(set(no_measure_ids))
+                            if len(unique_no_measure_ids) > 1:
+                                print("Warning: Duplicate 'no measure' IDs found")
+                            based_on_Imp_obj_IDs = unique_no_measure_ids
 
 
                         # Create the unique impact object ID in the same order as the columns
