@@ -205,6 +205,8 @@ def generate_exp_sets(exp_dict, intr_param,  future_year=None, growth_rate=0.02)
         # Get the year range for each value_unit
         exp_inter_pol_years[value_unit] = [min(exp_dict.keys()), max(exp_dict.keys())]
 
+#%%
+
     # Store all the interpolated and extrapolated exposure sets
     exp_avail_dict = {} # Store all the interpolated and extrapolated exposure sets 
 
