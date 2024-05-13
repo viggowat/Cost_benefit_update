@@ -388,3 +388,74 @@ def _generate_scale_exp(exp_avail_dict, future_year, growth_rate):
 
     return exp_multipl_dict
 
+
+#%% Get the unique exposure groups
+
+
+def _get_unique_exp_groups(exp_given_mod_dict, group_cols= []):
+    """
+    This function takes the exposure dictionary and returns a dictionary with the unique exposure groups.
+
+    Parameters:
+    exp_given_mod_dict (dict): Dictionary with the exposure objects
+    group_cols (list): List with the column names that define the group
+
+    Returns:
+    groups_dict (dict): Dictionary with the unique exposure groups
+    """
+
+    # Add ['latitude', 'longitude'] to the group_cols if not present
+    # if 'latitude' not in group_cols:
+    #     group_cols.append('latitude')
+    # if 'longitude' not in group_cols:
+    #     group_cols.append('longitude')
+
+    if len(group_cols) == 0:
+        return None
+
+    # Make a base data frame with the group columns
+    groups_dict = {}
+
+    # Iterate over the exposure dictionary and add the unique exposure points to the group_cols
+    for exp_type, exp_dict in exp_given_mod_dict.items():
+        # Make a dictionary to store the unique exposure points
+        groups_dict[exp_type] = pd.DataFrame(columns=group_cols)
+        # Iterate over the exposure objects
+        for exp in exp_dict.values():
+            # Get the gdf
+            gdf = exp.gdf
+            # Check if the group columns are in the gdf
+            cols_in_gdf = [col for col in group_cols if col in gdf.columns]
+            # Get the unique exposure points
+            unique_group_values = gdf[cols_in_gdf].drop_duplicates()
+            # Concatenate the unique exposure points to the group data frame
+            groups_dict[exp_type] = pd.concat([groups_dict[exp_type], unique_group_values], axis=0)
+
+        # Drop duplicates and set the index as Group ID
+        groups_dict[exp_type] = groups_dict[exp_type].drop_duplicates().reset_index(drop=True)
+        groups_dict[exp_type].index.name = 'Group ID'
+
+        # Add a column with the exposure ID being a list
+        groups_dict[exp_type]['Exposure ID'] = [[] for i in range(groups_dict[exp_type].shape[0])]
+
+
+    # Iterate over the exposure dictionary and add the unique exposure points to the group_cols
+    for exp_type, exp_dict in exp_given_mod_dict.items():
+        # Get the group data frame
+        gropup_df = groups_dict[exp_type]
+        # Iterate over each row in the group data frame
+        for idx, row in gropup_df.iterrows():
+            # Iterate over the exposure objects
+            for exp in exp_dict.values():
+                # Get the gdf
+                gdf = exp.gdf
+                # Check if the group columns are in the gdf
+                cols_in_gdf = [col for col in group_cols if col in gdf.columns]
+                # Get the indiecies of the exposure points that are in the group
+                idxs = list(gdf[(gdf[cols_in_gdf] == row[cols_in_gdf]).all(axis=1)].index)
+                # Add the exposure IDs to the group data frame in the column 'Exposure ID'
+                gropup_df.at[idx, 'Exposure ID'] += idxs
+                # Make the values unique lists
+                gropup_df.at[idx, 'Exposure ID'] = list(set(gropup_df.at[idx, 'Exposure ID']))
+
+    return groups_dict

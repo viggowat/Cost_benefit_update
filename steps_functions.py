@@ -6,7 +6,7 @@ import pandas as pd
 
 from climada.engine import ImpactCalc
 
-import functions as fcn
+# import functions as fcn
 
 
 #%% Utils
@@ -82,159 +82,159 @@ def interpolate_value(x, x_range, y_range, param):
 
 #%% Functions related to the exposure objects
 
-# Define the function generate_exp_per_year that generates interpolated and extrapolated exposure sets per year
-def generate_exp_sets(exp_dict, intr_param,  future_year=None, growth_rate=0.02):
-    """
-    Generate interpolated and extrapolated exposure sets per year
-    """
+# # Define the function generate_exp_per_year that generates interpolated and extrapolated exposure sets per year
+# def generate_exp_sets(exp_dict, intr_param,  future_year=None, growth_rate=0.02):
+#     """
+#     Generate interpolated and extrapolated exposure sets per year
+#     """
 
-    start_year = min(exp_dict.keys())
+#     start_year = min(exp_dict.keys())
 
-    #%%% Generate the Exposure given dictionary and update so all the exposure sets have the same geo locations
-    # Check if the future_year is None
-    if future_year is None:
-        future_year = max(exp_dict.keys())
+#     #%%% Generate the Exposure given dictionary and update so all the exposure sets have the same geo locations
+#     # Check if the future_year is None
+#     if future_year is None:
+#         future_year = max(exp_dict.keys())
 
 
-    # Make all the items in the dictionary as list
-    for key, itm in exp_dict.items():
-        if not isinstance(itm, list):
-            exp_dict[key] = [itm]
+#     # Make all the items in the dictionary as list
+#     for key, itm in exp_dict.items():
+#         if not isinstance(itm, list):
+#             exp_dict[key] = [itm]
 
-    # Store all the available exposure sets in a dictionary
-    exp_given_dict = {} 
+#     # Store all the available exposure sets in a dictionary
+#     exp_given_dict = {} 
 
-    # Check all the possible exposure value_unit and store them in a list
-    exp_value_units = []
+#     # Check all the possible exposure value_unit and store them in a list
+#     exp_value_units = []
 
-    # Check all the possible exposure value_unit
-    for year, exp_list in exp_dict.items():
-        # Check if the column value_unit exists
-        for exp in exp_list:
-            # If the column value_unit does not exist, raise an error
-            if 'value_unit' not in exp.gdf.columns:
-                raise ValueError('The column value_unit should exist in the exposure dataframe.')
-            # If the column value_unit exists, ...
-            else:
-                value_unit = exp.gdf.value_unit.unique()
-                # Check if the value_unit column has only one unique value
-                if len(value_unit) > 1:
-                    raise ValueError('The value_unit column should have only one unique value')
-                # Check if the value_unit is not already in the list
-                elif value_unit[0] not in exp_value_units:
-                    # Store the value_unit in the list
-                    exp_value_units.append(value_unit[0])
-                    # Create a new key in the exp_given_dict dictionary
-                    exp_given_dict[value_unit[0]] = {}
-                # Store the exposure in the dictionary but check if the year is already in the dictionary
-                if year in exp_given_dict[value_unit[0]]:
-                    raise ValueError('The year already exists in the exposure set')
-                # Store the exposure in the dictionary
-                exp_given_dict[value_unit[0]][year] = exp
+#     # Check all the possible exposure value_unit
+#     for year, exp_list in exp_dict.items():
+#         # Check if the column value_unit exists
+#         for exp in exp_list:
+#             # If the column value_unit does not exist, raise an error
+#             if 'value_unit' not in exp.gdf.columns:
+#                 raise ValueError('The column value_unit should exist in the exposure dataframe.')
+#             # If the column value_unit exists, ...
+#             else:
+#                 value_unit = exp.gdf.value_unit.unique()
+#                 # Check if the value_unit column has only one unique value
+#                 if len(value_unit) > 1:
+#                     raise ValueError('The value_unit column should have only one unique value')
+#                 # Check if the value_unit is not already in the list
+#                 elif value_unit[0] not in exp_value_units:
+#                     # Store the value_unit in the list
+#                     exp_value_units.append(value_unit[0])
+#                     # Create a new key in the exp_given_dict dictionary
+#                     exp_given_dict[value_unit[0]] = {}
+#                 # Store the exposure in the dictionary but check if the year is already in the dictionary
+#                 if year in exp_given_dict[value_unit[0]]:
+#                     raise ValueError('The year already exists in the exposure set')
+#                 # Store the exposure in the dictionary
+#                 exp_given_dict[value_unit[0]][year] = exp
 
-    # Check that for the first year the number of exposure objects is the same
-    for value_unit, exp_dict in exp_given_dict.items():
-        # Check if the number of exposure objects is the same
-        if not start_year in exp_dict.keys():
-            raise ValueError('Both exposure objects should exist for the first year')
+#     # Check that for the first year the number of exposure objects is the same
+#     for value_unit, exp_dict in exp_given_dict.items():
+#         # Check if the number of exposure objects is the same
+#         if not start_year in exp_dict.keys():
+#             raise ValueError('Both exposure objects should exist for the first year')
                 
 
-    # For each value_unit get the unique exposure geo locations
-    exp_geo_locs = {}
-    for value_unit, exp_dict in exp_given_dict.items():
-        exp_geo_locs[value_unit] = None
-        idx = 0
-        boo_all_same = True
-        # Get the unique geo locations
-        for year, exp in exp_dict.items():
-            # Get the unique geo locations
-            if idx == 0:
-                exp_geo_locs[value_unit] = exp.gdf[['longitude', 'latitude']].drop_duplicates()
-                idx += 1
-            else:
-                # Check if the geo locations are the same
-                if not exp_geo_locs[value_unit].equals(exp.gdf[['longitude', 'latitude']].drop_duplicates()):
-                    print(f'For {value_unit}, the geo locations are different in the exposure sets')
-                    boo_all_same = False
-                    # Add the additional geo locations
-                    exp_geo_locs[value_unit] = pd.concat([exp_geo_locs[value_unit], exp.gdf[['longitude', 'latitude']].drop_duplicates()], ignore_index=True)
-                    # Drop duplicates
-                    exp_geo_locs[value_unit] = exp_geo_locs[value_unit].drop_duplicates()
-                    # Reset index
-                    exp_geo_locs[value_unit].reset_index(drop=True, inplace=True)
+#     # For each value_unit get the unique exposure geo locations
+#     exp_geo_locs = {}
+#     for value_unit, exp_dict in exp_given_dict.items():
+#         exp_geo_locs[value_unit] = None
+#         idx = 0
+#         boo_all_same = True
+#         # Get the unique geo locations
+#         for year, exp in exp_dict.items():
+#             # Get the unique geo locations
+#             if idx == 0:
+#                 exp_geo_locs[value_unit] = exp.gdf[['longitude', 'latitude']].drop_duplicates()
+#                 idx += 1
+#             else:
+#                 # Check if the geo locations are the same
+#                 if not exp_geo_locs[value_unit].equals(exp.gdf[['longitude', 'latitude']].drop_duplicates()):
+#                     print(f'For {value_unit}, the geo locations are different in the exposure sets')
+#                     boo_all_same = False
+#                     # Add the additional geo locations
+#                     exp_geo_locs[value_unit] = pd.concat([exp_geo_locs[value_unit], exp.gdf[['longitude', 'latitude']].drop_duplicates()], ignore_index=True)
+#                     # Drop duplicates
+#                     exp_geo_locs[value_unit] = exp_geo_locs[value_unit].drop_duplicates()
+#                     # Reset index
+#                     exp_geo_locs[value_unit].reset_index(drop=True, inplace=True)
 
-        # Print total number of geo locations for value_unit
-        print(f'Total number of geo locations for {value_unit} is {len(exp_geo_locs[value_unit])}')
+#         # Print total number of geo locations for value_unit
+#         print(f'Total number of geo locations for {value_unit} is {len(exp_geo_locs[value_unit])}')
 
-        # If the geo locations are not the same add a new exposure point to the ones missing with value 0
-        if not boo_all_same:
-            for year, exp in exp_dict.items():
-            # Print the row exp_geo_locs that does not exist in the exposure set
-                # Get the longitude and latitude that do not exist in the exposure set
-                merged_df = pd.merge(exp_geo_locs[value_unit], exp.gdf[['longitude', 'latitude']].drop_duplicates(), on=['longitude', 'latitude'], how='outer', indicator=True)
-                missing_geo_locs = merged_df[merged_df['_merge'] == 'left_only'][['longitude', 'latitude']]
-                #print(f'The missing geo locations in the year {year} are:')
-                #print(missing_geo_locs)
-                if len(missing_geo_locs) > 0:
-                    # Add the missing geo locations rows with value 0 and store them in the exposure set and longitude and latitude columns and other values the same as the first row
-                    for idx, row in missing_geo_locs.iterrows():
-                        # Get the first row of the exposure set
-                        first_row = exp.gdf.iloc[0]
-                        # Create a new row with the missing geo location
-                        new_row = first_row.copy()
-                        new_row['longitude'] = row['longitude']
-                        new_row['latitude'] = row['latitude']
-                        new_row['value'] = 0
-                        # Add the new row to the exposure set without using append
-                        exp.gdf.loc[len(exp.gdf)] = new_row
-            # check so that the number of rows in the exposure set is the same as the number of geo locations and print the year
-            if len(exp.gdf) != len(exp_geo_locs[value_unit]):
-                raise ValueError(f'The number of rows in the exposure set is not the same as the number of geo locations in the year {year}')
-            if len(exp.gdf) != len(exp_geo_locs[value_unit]):
-                print(f'The number of rows in the exposure set is not the same as the number of geo locations in the year {year}')
+#         # If the geo locations are not the same add a new exposure point to the ones missing with value 0
+#         if not boo_all_same:
+#             for year, exp in exp_dict.items():
+#             # Print the row exp_geo_locs that does not exist in the exposure set
+#                 # Get the longitude and latitude that do not exist in the exposure set
+#                 merged_df = pd.merge(exp_geo_locs[value_unit], exp.gdf[['longitude', 'latitude']].drop_duplicates(), on=['longitude', 'latitude'], how='outer', indicator=True)
+#                 missing_geo_locs = merged_df[merged_df['_merge'] == 'left_only'][['longitude', 'latitude']]
+#                 #print(f'The missing geo locations in the year {year} are:')
+#                 #print(missing_geo_locs)
+#                 if len(missing_geo_locs) > 0:
+#                     # Add the missing geo locations rows with value 0 and store them in the exposure set and longitude and latitude columns and other values the same as the first row
+#                     for idx, row in missing_geo_locs.iterrows():
+#                         # Get the first row of the exposure set
+#                         first_row = exp.gdf.iloc[0]
+#                         # Create a new row with the missing geo location
+#                         new_row = first_row.copy()
+#                         new_row['longitude'] = row['longitude']
+#                         new_row['latitude'] = row['latitude']
+#                         new_row['value'] = 0
+#                         # Add the new row to the exposure set without using append
+#                         exp.gdf.loc[len(exp.gdf)] = new_row
+#             # check so that the number of rows in the exposure set is the same as the number of geo locations and print the year
+#             if len(exp.gdf) != len(exp_geo_locs[value_unit]):
+#                 raise ValueError(f'The number of rows in the exposure set is not the same as the number of geo locations in the year {year}')
+#             if len(exp.gdf) != len(exp_geo_locs[value_unit]):
+#                 print(f'The number of rows in the exposure set is not the same as the number of geo locations in the year {year}')
 
 
-    #%%% Generate the interppolated Exposure dictionary
+#     #%%% Generate the interppolated Exposure dictionary
                 
-    # Get the year range for each value_unit
-    exp_inter_pol_years = {}
-    # Count the number of exposure objects for each value_unit
-    for value_unit, exp_dict in exp_given_dict.items():
-        exp_inter_pol_years[value_unit] = None
-        print(f'The number of exposure objects for {value_unit} is {len(exp_dict)}')
-        # Get the year range for each value_unit
-        exp_inter_pol_years[value_unit] = [min(exp_dict.keys()), max(exp_dict.keys())]
+#     # Get the year range for each value_unit
+#     exp_inter_pol_years = {}
+#     # Count the number of exposure objects for each value_unit
+#     for value_unit, exp_dict in exp_given_dict.items():
+#         exp_inter_pol_years[value_unit] = None
+#         print(f'The number of exposure objects for {value_unit} is {len(exp_dict)}')
+#         # Get the year range for each value_unit
+#         exp_inter_pol_years[value_unit] = [min(exp_dict.keys()), max(exp_dict.keys())]
 
-#%%
+# #%%
 
-    # Store all the interpolated and extrapolated exposure sets
-    exp_avail_dict = {} # Store all the interpolated and extrapolated exposure sets 
+#     # Store all the interpolated and extrapolated exposure sets
+#     exp_avail_dict = {} # Store all the interpolated and extrapolated exposure sets 
 
-    # Interpolate the exposure sets
-    for value_unit in exp_value_units:
-        exp_avail_dict[value_unit] = {}
-        # Check if the value_unit has more than one exposure set
-        if not exp_inter_pol_years[value_unit]:
-            exp_avail_dict[value_unit] = exp_given_dict[value_unit]
-        else:
-            exp_dict = exp_given_dict[value_unit]
-            # Interpolate
-            for year_start, year_end in zip(list(exp_dict.keys())[:-1], list(exp_dict.keys())[1:]):
-                #print(f'The pair of years is {year_start} and {year_end}')
-                # Make a subset of the exposure dictionary
-                exp_dict_subset = {}
-                exp_dict_subset[year_start] = exp_dict[year_start]
-                exp_dict_subset[year_end] = exp_dict[year_end]
-                # Interpolation parameter
-                exp_temp_dict = fcn.generate_exp_per_year(exp_dict_subset, intr_param, future_year)
-                # Add the interpolated exposure to the dictionary
-                exp_avail_dict[value_unit].update(exp_temp_dict)
-            # Extrapolate
-            #if future_year not in exp_avail_dict[value_unit]:
-            #    # Take last year as the last year in the dictionary
-            #    exp_dict_subset = {year_end: exp_dict_subset[year_end]}
-            #    exp_temp_dict = fcn.generate_exp_per_year(exp_dict_subset, intr_param, exp_expl_fnc, future_year)
-            #    exp_avail_dict[value_unit].update(exp_temp_dict)
+#     # Interpolate the exposure sets
+#     for value_unit in exp_value_units:
+#         exp_avail_dict[value_unit] = {}
+#         # Check if the value_unit has more than one exposure set
+#         if not exp_inter_pol_years[value_unit]:
+#             exp_avail_dict[value_unit] = exp_given_dict[value_unit]
+#         else:
+#             exp_dict = exp_given_dict[value_unit]
+#             # Interpolate
+#             for year_start, year_end in zip(list(exp_dict.keys())[:-1], list(exp_dict.keys())[1:]):
+#                 #print(f'The pair of years is {year_start} and {year_end}')
+#                 # Make a subset of the exposure dictionary
+#                 exp_dict_subset = {}
+#                 exp_dict_subset[year_start] = exp_dict[year_start]
+#                 exp_dict_subset[year_end] = exp_dict[year_end]
+#                 # Interpolation parameter
+#                 exp_temp_dict = fcn.generate_exp_per_year(exp_dict_subset, intr_param, future_year)
+#                 # Add the interpolated exposure to the dictionary
+#                 exp_avail_dict[value_unit].update(exp_temp_dict)
+#             # Extrapolate
+#             #if future_year not in exp_avail_dict[value_unit]:
+#             #    # Take last year as the last year in the dictionary
+#             #    exp_dict_subset = {year_end: exp_dict_subset[year_end]}
+#             #    exp_temp_dict = fcn.generate_exp_per_year(exp_dict_subset, intr_param, exp_expl_fnc, future_year)
+#             #    exp_avail_dict[value_unit].update(exp_temp_dict)
 
     #%%% Generate the scale Exposure dataframe dictionary
 
@@ -401,6 +401,10 @@ def generate_haz_sets(haz_dict, intr_param=1, future_year=None):
 #%% Generate the sample event IDs
 
 def generate_sample_eventIDs(haz_given_dict, haz_param_dict, future_year, n_samples=100, sample_method='bayesian'):
+    """
+    Make a third option where the transitio to new ditribution occurs at a random point in time given the probability of the transition of theta
+    
+    """
 
     # Get smallest year
     start_year = min(haz_given_dict[list(haz_given_dict.keys())[0]].keys())
