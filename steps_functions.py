@@ -996,3 +996,91 @@ def generate_imp_obj_dict(imp_meas_unique_df, exp_avail_dict, haz_avail_dict, im
             imp_rel_dict[imp_obj_ID] = imp_obj_rel
 
     return imp_abs_dict, imp_rel_dict
+
+
+#%% Calculate the simulation results
+
+def _calc_sim_rel_imp_per_exp_dict(exp_avail_dict, imp_meas_map_year_df, haz_avail_dict, sampled_eventIDs_dict, imp_rel_dict, exp_unique_ids_dict):
+
+    # Get the unique exposure types
+    exp_types = list(exp_avail_dict.keys())
+
+    # Get the unique measure names
+    meas_names = list(imp_meas_map_year_df['meas_name'].unique())
+
+    # Get the unique hazard types
+    haz_types = list(haz_avail_dict.keys())
+
+    # Get the path years
+    path_years = imp_meas_map_year_df['pathway_year'].unique()
+
+    # the number of simulations
+    #sampled_eventIDs_dict[haz_types[0]].keys()[0].shape[0]
+    n_sim = sampled_eventIDs_dict[haz_types[0]][list(sampled_eventIDs_dict[haz_types[0]].keys())[0]].shape[0]
+
+    # exposure ids for each exposure type
+    nbr_exp_ids = {exp_type: len(exp_unique_ids_dict[exp_type]) for exp_type in exp_types}
+
+
+    # Make the simalation dictionary
+    sim_rel_imp_per_exp_dict = {} # Simulated relative impact per exposure
+    sim_exp_value_dict = {} # Simulated exposure value over time
+
+    # Make the dictionary
+    # Iterate over the exposure types
+    for exp_type in exp_types:
+        sim_rel_imp_per_exp_dict[exp_type] = {}
+
+        # Iterate over the measure names
+        for meas_name in meas_names:
+            sim_rel_imp_per_exp_dict[exp_type][meas_name] = {}
+        
+            # Iterate over the hazard types
+            # Make a multi hazard dictionary that combines the impacts from both hazards
+            if len(haz_types) > 1:
+                sim_rel_imp_per_exp_dict[exp_type][meas_name]['MULTI'] = pd.DataFrame(index=range(n_sim), columns=path_years)
+            for haz_type in haz_types:
+                # Creta a dictionary to store the simulated values with rows being the simulations and columns being the path years
+                sim_rel_imp_per_exp_dict[exp_type][meas_name][haz_type] = pd.DataFrame(index=range(n_sim), columns=path_years)
+                
+                # Iterate over the path years
+                for path_year in path_years:
+                    # Get the hazard idx yeasr and the impact object IDs
+                    haz_idx_years = list(imp_meas_map_year_df[(imp_meas_map_year_df['exp_type'] == exp_type) & (imp_meas_map_year_df['meas_name'] == meas_name) & (imp_meas_map_year_df['haz_type'] == haz_type) & (imp_meas_map_year_df['pathway_year'] == path_year)]['haz_idx_year'])
+                    imp_obj_IDs = list(imp_meas_map_year_df[(imp_meas_map_year_df['exp_type'] == exp_type) & (imp_meas_map_year_df['meas_name'] == meas_name) & (imp_meas_map_year_df['haz_type'] == haz_type) & (imp_meas_map_year_df['pathway_year'] == path_year)]['imp_obj_ID'])
+
+                    # Iterate over the impact object IDs
+                    for haz_idx_year, imp_obj_ID in zip(haz_idx_years, imp_obj_IDs):
+                        # Get the impact object
+                        imp_obj_mat = imp_rel_dict[imp_obj_ID].imp_mat
+                        #print(path_year, haz_idx_year, imp_obj_ID)
+
+                        # Get the event IDs
+                        eventIDs_per_sim = sampled_eventIDs_dict[haz_type][haz_idx_year][path_year]
+
+                        # For each simulated trajectory
+                        for simID in range(n_sim):
+                            sim_EventIDs = eventIDs_per_sim[simID]
+                            # Make a zero array
+                            imp_values = np.zeros(nbr_exp_ids[exp_type])
+
+                            # For each event ID in the simulated trajectory 
+                            for event_ID in sim_EventIDs:
+                                # Get the row of the sparse matrix
+                                row = imp_obj_mat[event_ID, :]
+                                # Add the non-zero values to the corresponding indices in imp_values
+                                np.add.at(imp_values, row.indices, row.data)
+                            
+                            # Check such that the impact values are not larger than 1
+                            # Add to the data frame of the given hazard type
+                            imp_values[imp_values > 1] = 1
+                            sim_rel_imp_per_exp_dict[exp_type][meas_name][haz_type].loc[simID, path_year] = imp_values
+                            # Add to the data frame of the multi hazard type
+                            if len(haz_types) > 1:
+                                imp_Multi_values = sim_rel_imp_per_exp_dict[exp_type][meas_name]['MULTI'].loc[simID, path_year]
+                                imp_Multi_values = np.add(imp_Multi_values, imp_values)
+                                imp_Multi_values[imp_Multi_values > 1] = 1
+                                sim_rel_imp_per_exp_dict[exp_type][meas_name]['MULTI'].loc[simID, path_year] += imp_Multi_values
+
+
+    return sim_rel_imp_per_exp_dict
